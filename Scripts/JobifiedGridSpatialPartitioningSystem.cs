@@ -5,7 +5,7 @@ using Unity.Burst;
 using UnityEngine;
 using System.Collections.Generic;
 
-namespace Insthync.SpatialPartitioningSystem
+namespace Insthync.SpatialPartitioningSystems
 {
     public class JobifiedGridSpatialPartitioningSystem
     {
