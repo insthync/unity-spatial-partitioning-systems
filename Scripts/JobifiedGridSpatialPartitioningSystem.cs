@@ -7,16 +7,16 @@ using System.Collections.Generic;
 
 namespace Insthync.SpatialPartitioningSystems
 {
-    public class JobifiedGridSpatialPartitioningSystem
+    public class JobifiedGridSpatialPartitioningSystem : System.IDisposable
     {
-        private NativeArray<float3> _objectPositions;
-        private NativeParallelMultiHashMap<int, int> _cellToObjects; // Maps cell index to object indices
+        private NativeArray<SpatialObject> _spatialObjects;
+        private NativeParallelMultiHashMap<int, SpatialObject> _cellToObjects;
 
-        private int _gridSizeX;
-        private int _gridSizeY;
-        private int _gridSizeZ;
-        private float _cellSize;
-        private float3 _worldMin;
+        private readonly int _gridSizeX;
+        private readonly int _gridSizeY;
+        private readonly int _gridSizeZ;
+        private readonly float _cellSize;
+        private readonly float3 _worldMin;
 
         public JobifiedGridSpatialPartitioningSystem(Bounds bounds, float cellSize, int maxObjects)
         {
@@ -28,23 +28,28 @@ namespace Insthync.SpatialPartitioningSystems
             _gridSizeZ = Mathf.CeilToInt(bounds.size.z / cellSize);
 
             int totalCells = _gridSizeX * _gridSizeY * _gridSizeZ;
-            _cellToObjects = new NativeParallelMultiHashMap<int, int>(maxObjects, Allocator.Persistent);
+            _cellToObjects = new NativeParallelMultiHashMap<int, SpatialObject>(maxObjects * 8, Allocator.Persistent); // Multiplied by 8 because objects can span multiple cells
         }
 
-        ~JobifiedGridSpatialPartitioningSystem()
+        public void Dispose()
         {
-            if (_objectPositions.IsCreated)
-                _objectPositions.Dispose();
+            if (_spatialObjects.IsCreated)
+                _spatialObjects.Dispose();
 
             if (_cellToObjects.IsCreated)
                 _cellToObjects.Dispose();
         }
 
+        ~JobifiedGridSpatialPartitioningSystem()
+        {
+            Dispose();
+        }
+
         [BurstCompile]
         private struct UpdateGridJob : IJobParallelFor
         {
-            [ReadOnly] public NativeArray<float3> Positions;
-            public NativeParallelMultiHashMap<int, int>.ParallelWriter CellToObjects;
+            [ReadOnly] public NativeArray<SpatialObject> Objects;
+            public NativeParallelMultiHashMap<int, SpatialObject>.ParallelWriter CellToObjects;
             public float CellSize;
             public float3 WorldMin;
             public int GridSizeX;
@@ -53,86 +58,25 @@ namespace Insthync.SpatialPartitioningSystems
 
             public void Execute(int index)
             {
-                float3 position = Positions[index];
-                int3 cellIndex = GetCellIndex(position);
+                SpatialObject obj = Objects[index];
 
-                if (IsValidCellIndex(cellIndex))
-                {
-                    int flatIndex = GetFlatIndex(cellIndex);
-                    CellToObjects.Add(flatIndex, index);
-                }
-            }
-
-            private int3 GetCellIndex(float3 position)
-            {
-                float3 relative = position - WorldMin;
-                return new int3(
-                    (int)(relative.x / CellSize),
-                    (int)(relative.y / CellSize),
-                    (int)(relative.z / CellSize)
-                );
-            }
-
-            private bool IsValidCellIndex(int3 index)
-            {
-                return index.x >= 0 && index.x < GridSizeX &&
-                       index.y >= 0 && index.y < GridSizeY &&
-                       index.z >= 0 && index.z < GridSizeZ;
-            }
-
-            private int GetFlatIndex(int3 index)
-            {
-                return index.x + GridSizeX * (index.y + GridSizeY * index.z);
-            }
-        }
-
-        [BurstCompile]
-        private struct QueryRadiusJob : IJob
-        {
-            [ReadOnly] public NativeParallelMultiHashMap<int, int> CellToObjects;
-            [ReadOnly] public NativeArray<float3> Positions;
-            public float3 QueryPosition;
-            public float QueryRadius;
-            public float CellSize;
-            public float3 WorldMin;
-            public int GridSizeX;
-            public int GridSizeY;
-            public int GridSizeZ;
-            public NativeList<int> Results;
-
-            public void Execute()
-            {
-                float radiusSquared = QueryRadius * QueryRadius;
-                int3 minCell = GetCellIndex(QueryPosition - new float3(QueryRadius));
-                int3 maxCell = GetCellIndex(QueryPosition + new float3(QueryRadius));
+                // Calculate the cells this object could overlap with
+                int3 minCell = GetCellIndex(obj.position - new float3(obj.radius));
+                int3 maxCell = GetCellIndex(obj.position + new float3(obj.radius));
 
                 // Clamp to grid bounds
                 minCell = math.max(minCell, 0);
                 maxCell = math.min(maxCell, new int3(GridSizeX - 1, GridSizeY - 1, GridSizeZ - 1));
 
-                for (int z = minCell.z; z <= maxCell.z; ++z)
+                // Add object to all cells it overlaps
+                for (int z = minCell.z; z <= maxCell.z; z++)
                 {
-                    for (int y = minCell.y; y <= maxCell.y; ++y)
+                    for (int y = minCell.y; y <= maxCell.y; y++)
                     {
-                        for (int x = minCell.x; x <= maxCell.x; ++x)
+                        for (int x = minCell.x; x <= maxCell.x; x++)
                         {
                             int flatIndex = GetFlatIndex(new int3(x, y, z));
-
-                            NativeParallelMultiHashMapIterator<int> iterator;
-                            int objectIndex;
-
-                            if (CellToObjects.TryGetFirstValue(flatIndex, out objectIndex, out iterator))
-                            {
-                                do
-                                {
-                                    float3 objectPosition = Positions[objectIndex];
-                                    if (math.distancesq(QueryPosition, objectPosition) <= radiusSquared)
-                                    {
-                                        Results.Add(objectIndex);
-                                    }
-                                }
-                                while (CellToObjects.TryGetNextValue(out objectIndex, ref iterator));
-                            }
+                            CellToObjects.Add(flatIndex, obj);
                         }
                     }
                 }
@@ -154,15 +98,92 @@ namespace Insthync.SpatialPartitioningSystems
             }
         }
 
-        public void UpdateGrid(List<Vector3> positions)
+        [BurstCompile]
+        private struct QueryRadiusJob : IJob
         {
-            // Convert positions to NativeArray
-            if (_objectPositions.IsCreated) _objectPositions.Dispose();
-            _objectPositions = new NativeArray<float3>(positions.Count, Allocator.TempJob);
+            [ReadOnly] public NativeParallelMultiHashMap<int, SpatialObject> CellToObjects;
+            public float3 QueryPosition;
+            public float QueryRadius;
+            public float CellSize;
+            public float3 WorldMin;
+            public int GridSizeX;
+            public int GridSizeY;
+            public int GridSizeZ;
+            public NativeList<SpatialObject> Results;
 
-            for (int i = 0; i < positions.Count; i++)
+            public void Execute()
             {
-                _objectPositions[i] = positions[i];
+                float radiusSquared = QueryRadius * QueryRadius;
+                int3 minCell = GetCellIndex(QueryPosition - new float3(QueryRadius));
+                int3 maxCell = GetCellIndex(QueryPosition + new float3(QueryRadius));
+
+                // Clamp to grid bounds
+                minCell = math.max(minCell, 0);
+                maxCell = math.min(maxCell, new int3(GridSizeX - 1, GridSizeY - 1, GridSizeZ - 1));
+
+                var addedObjects = new NativeHashSet<int>(100, Allocator.Temp);
+
+                for (int z = minCell.z; z <= maxCell.z; z++)
+                {
+                    for (int y = minCell.y; y <= maxCell.y; y++)
+                    {
+                        for (int x = minCell.x; x <= maxCell.x; x++)
+                        {
+                            int flatIndex = GetFlatIndex(new int3(x, y, z));
+
+                            if (CellToObjects.TryGetFirstValue(flatIndex, out SpatialObject spatialObject, out var iterator))
+                            {
+                                do
+                                {
+                                    // Avoid adding the same object multiple times
+                                    if (!addedObjects.Contains(spatialObject.objectIndex))
+                                    {
+                                        float combinedRadius = QueryRadius + spatialObject.radius;
+                                        float combinedRadiusSq = combinedRadius * combinedRadius;
+
+                                        if (math.distancesq(QueryPosition, spatialObject.position) <= combinedRadiusSq)
+                                        {
+                                            Results.Add(spatialObject);
+                                            addedObjects.Add(spatialObject.objectIndex);
+                                        }
+                                    }
+                                }
+                                while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));
+                            }
+                        }
+                    }
+                }
+
+                addedObjects.Dispose();
+            }
+
+            private int3 GetCellIndex(float3 position)
+            {
+                float3 relative = position - WorldMin;
+                return new int3(
+                    (int)(relative.x / CellSize),
+                    (int)(relative.y / CellSize),
+                    (int)(relative.z / CellSize)
+                );
+            }
+
+            private int GetFlatIndex(int3 index)
+            {
+                return index.x + GridSizeX * (index.y + GridSizeY * index.z);
+            }
+        }
+
+        public void UpdateGrid(List<SpatialObject> spatialObjects)
+        {
+            // Convert to SpatialObjects
+            if (_spatialObjects.IsCreated) _spatialObjects.Dispose();
+            _spatialObjects = new NativeArray<SpatialObject>(spatialObjects.Count, Allocator.TempJob);
+
+            for (int i = 0; i < spatialObjects.Count; i++)
+            {
+                SpatialObject spatialObject = spatialObjects[i];
+                spatialObject.objectIndex = i;
+                _spatialObjects[i] = spatialObjects[i];
             }
 
             // Clear previous grid data
@@ -171,7 +192,7 @@ namespace Insthync.SpatialPartitioningSystems
             // Create and schedule update job
             var updateJob = new UpdateGridJob
             {
-                Positions = _objectPositions,
+                Objects = _spatialObjects,
                 CellToObjects = _cellToObjects.AsParallelWriter(),
                 CellSize = _cellSize,
                 WorldMin = _worldMin,
@@ -180,18 +201,17 @@ namespace Insthync.SpatialPartitioningSystems
                 GridSizeZ = _gridSizeZ
             };
 
-            var handle = updateJob.Schedule(positions.Count, 64);
+            var handle = updateJob.Schedule(_spatialObjects.Length, 64);
             handle.Complete();
         }
 
-        public NativeList<int> QueryRadius(Vector3 position, float radius)
+        public NativeList<SpatialObject> QueryRadius(Vector3 position, float radius)
         {
-            var results = new NativeList<int>(Allocator.TempJob);
+            var results = new NativeList<SpatialObject>(Allocator.TempJob);
 
             var queryJob = new QueryRadiusJob
             {
                 CellToObjects = _cellToObjects,
-                Positions = _objectPositions,
                 QueryPosition = position,
                 QueryRadius = radius,
                 CellSize = _cellSize,
