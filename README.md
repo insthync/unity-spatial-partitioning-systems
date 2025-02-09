@@ -1,2 +1,2 @@
-# Spatial Partitioning System
-Some spatial partitioning system for Unity
+# Spatial Partitioning Systems
+Some spatial partitioning systems for Unity
