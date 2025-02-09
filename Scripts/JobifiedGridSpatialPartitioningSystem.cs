@@ -183,7 +183,7 @@ namespace Insthync.SpatialPartitioningSystems
             {
                 SpatialObject spatialObject = spatialObjects[i];
                 spatialObject.objectIndex = i;
-                _spatialObjects[i] = spatialObjects[i];
+                _spatialObjects[i] = spatialObject;
             }
 
             // Clear previous grid data
