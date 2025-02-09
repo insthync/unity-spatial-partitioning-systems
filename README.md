@@ -1,2 +1,2 @@
-# JobifiedGridSpatialPartitioningSystem
-A Jobified Grid Spatial Partitioning System for Unity
+# Spatial Partitioning System
+Some spatial partitioning system for Unity
