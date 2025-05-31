@@ -42,16 +42,16 @@ namespace Insthync.SpatialPartitioningSystems
                         do
                         {
                             // Avoid adding the same object multiple times
-                            if (!addedObjects.Contains(spatialObject.objectIndex))
-                            {
-                                float combinedRadius = QueryRadius + spatialObject.radius;
-                                float combinedRadiusSq = combinedRadius * combinedRadius;
+                            if (addedObjects.Contains(spatialObject.objectIndex))
+                                continue;
 
-                                if (math.distancesq(QueryPosition, spatialObject.position) <= combinedRadiusSq)
-                                {
-                                    Results.Add(spatialObject);
-                                    addedObjects.Add(spatialObject.objectIndex);
-                                }
+                            // Check if the object is inside the query radius, expanded by its radius
+                            float combinedRadius = QueryRadius + spatialObject.radius;
+                            float combinedRadiusSq = combinedRadius * combinedRadius;
+                            if (math.distancesq(QueryPosition, spatialObject.position) <= combinedRadiusSq)
+                            {
+                                Results.Add(spatialObject);
+                                addedObjects.Add(spatialObject.objectIndex);
                             }
                         }
                         while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));
