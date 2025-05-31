@@ -43,7 +43,7 @@ namespace Insthync.SpatialPartitioningSystems
                         do
                         {
                             // Avoid adding the same object multiple times
-                            if (addedObjects.Add(spatialObject.objectIndex))
+                            if (!addedObjects.Add(spatialObject.objectIndex))
                                 continue;
 
                             switch (spatialObject.shape)
