@@ -21,8 +21,9 @@ namespace Insthync.SpatialPartitioningSystems
         public void Execute()
         {
             float radiusSquared = QueryRadius * QueryRadius;
-            int3 minCell = QueryFunctions.GetCellIndex(QueryPosition - new float3(QueryRadius), WorldMin, CellSize);
-            int3 maxCell = QueryFunctions.GetCellIndex(QueryPosition + new float3(QueryRadius), WorldMin, CellSize);
+            float3 queryExtentVec = new float3(QueryRadius);
+            int3 minCell = QueryFunctions.GetCellIndex(QueryPosition - queryExtentVec, WorldMin, CellSize);
+            int3 maxCell = QueryFunctions.GetCellIndex(QueryPosition + queryExtentVec, WorldMin, CellSize);
 
             // Clamp to grid bounds
             minCell = math.max(minCell, 0);
@@ -42,16 +43,35 @@ namespace Insthync.SpatialPartitioningSystems
                         do
                         {
                             // Avoid adding the same object multiple times
-                            if (addedObjects.Contains(spatialObject.objectIndex))
+                            if (addedObjects.Add(spatialObject.objectIndex))
                                 continue;
 
-                            // Check if the object is inside the query radius, expanded by its radius
-                            float combinedRadius = QueryRadius + spatialObject.radius;
-                            float combinedRadiusSq = combinedRadius * combinedRadius;
-                            if (math.distancesq(QueryPosition, spatialObject.position) <= combinedRadiusSq)
+                            switch (spatialObject.shape)
                             {
-                                Results.Add(spatialObject);
-                                addedObjects.Add(spatialObject.objectIndex);
+                                case SpatialObjectShape.Sphere:
+                                    // Check if the object is inside the query radius, expanded by its radius
+                                    float combinedRadius = QueryRadius + spatialObject.radius;
+                                    float combinedRadiusSq = combinedRadius * combinedRadius;
+                                    if (math.distancesq(QueryPosition, spatialObject.position) <= combinedRadiusSq)
+                                    {
+                                        Results.Add(spatialObject);
+                                    }
+                                    break;
+                                case SpatialObjectShape.Box:
+                                    // Calculate box min and max
+                                    float3 boxMin = spatialObject.position - spatialObject.extents;
+                                    float3 boxMax = spatialObject.position + spatialObject.extents;
+
+                                    // Clamp the query position to the box bounds to find the closest point
+                                    float3 closestPoint = math.clamp(QueryPosition, boxMin, boxMax);
+
+                                    // Check distance from query point to closest point on box
+                                    float distSq = math.distancesq(QueryPosition, closestPoint);
+                                    if (distSq <= radiusSquared)
+                                    {
+                                        Results.Add(spatialObject);
+                                    }
+                                    break;
                             }
                         }
                         while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));

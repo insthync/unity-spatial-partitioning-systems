@@ -7,7 +7,11 @@ namespace Insthync.SpatialPartitioningSystems
         public byte objectType;
         public uint objectId;
         public float3 position;
-        public float radius;
         public int objectIndex;
+        public SpatialObjectShape shape;
+        // Sphere
+        public float radius;
+        // Box
+        public float3 extents;
     }
 }

@@ -44,18 +44,34 @@ namespace Insthync.SpatialPartitioningSystems
                         do
                         {
                             // Avoid adding the same object multiple times
-                            if (addedObjects.Contains(spatialObject.objectIndex))
+                            if (addedObjects.Add(spatialObject.objectIndex))
                                 continue;
 
-                            // Check if the object is inside the AABB, expanded by its radius
-                            float3 position = spatialObject.position;
-                            float radius = spatialObject.radius;
-                            if (math.abs(position.x - QueryCenter.x) <= QueryExtents.x + radius &&
-                                math.abs(position.y - QueryCenter.y) <= QueryExtents.y + radius &&
-                                math.abs(position.z - QueryCenter.z) <= QueryExtents.z + radius)
+                            switch (spatialObject.shape)
                             {
-                                Results.Add(spatialObject);
-                                addedObjects.Add(spatialObject.objectIndex);
+                                case SpatialObjectShape.Sphere:
+                                    float3 position = spatialObject.position;
+                                    float radius = spatialObject.radius;
+                                    if (math.abs(position.x - QueryCenter.x) <= QueryExtents.x + radius &&
+                                        math.abs(position.y - QueryCenter.y) <= QueryExtents.y + radius &&
+                                        math.abs(position.z - QueryCenter.z) <= QueryExtents.z + radius)
+                                    {
+                                        Results.Add(spatialObject);
+                                    }
+                                    break;
+                                case SpatialObjectShape.Box:
+                                    // Calculate box min and max
+                                    float3 boxMin = spatialObject.position - spatialObject.extents;
+                                    float3 boxMax = spatialObject.position + spatialObject.extents;
+
+                                    // AABB-AABB intersection check
+                                    if (!(boxMax.x < queryMin.x || boxMin.x > queryMax.x ||
+                                          boxMax.y < queryMin.y || boxMin.y > queryMax.y ||
+                                          boxMax.z < queryMin.z || boxMin.z > queryMax.z))
+                                    {
+                                        Results.Add(spatialObject);
+                                    }
+                                    break;
                             }
                         } while (CellToObjects.TryGetNextValue(out spatialObject, ref it));
                     }
