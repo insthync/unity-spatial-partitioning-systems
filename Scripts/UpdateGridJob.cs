@@ -21,8 +21,8 @@ namespace Insthync.SpatialPartitioningSystems
             SpatialObject obj = Objects[index];
 
             // Calculate the cells this object could overlap with
-            int3 minCell = GetCellIndex(obj.position - new float3(obj.radius));
-            int3 maxCell = GetCellIndex(obj.position + new float3(obj.radius));
+            int3 minCell = QueryFunctions.GetCellIndex(obj.position - new float3(obj.radius), WorldMin, CellSize);
+            int3 maxCell = QueryFunctions.GetCellIndex(obj.position + new float3(obj.radius), WorldMin, CellSize);
 
             // Clamp to grid bounds
             minCell = math.max(minCell, 0);
@@ -35,26 +35,10 @@ namespace Insthync.SpatialPartitioningSystems
                 {
                     for (int x = minCell.x; x <= maxCell.x; x++)
                     {
-                        int flatIndex = GetFlatIndex(new int3(x, y, z));
-                        CellToObjects.Add(flatIndex, obj);
+                        CellToObjects.Add(QueryFunctions.GetFlatIndex(new int3(x, y, z), GridSizeX, GridSizeY), obj);
                     }
                 }
             }
-        }
-
-        private int3 GetCellIndex(float3 position)
-        {
-            float3 relative = position - WorldMin;
-            return new int3(
-                (int)(relative.x / CellSize),
-                (int)(relative.y / CellSize),
-                (int)(relative.z / CellSize)
-            );
-        }
-
-        private int GetFlatIndex(int3 index)
-        {
-            return index.x + GridSizeX * (index.y + GridSizeY * index.z);
         }
     }
 }

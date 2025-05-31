@@ -21,8 +21,8 @@ namespace Insthync.SpatialPartitioningSystems
         public void Execute()
         {
             float radiusSquared = QueryRadius * QueryRadius;
-            int3 minCell = GetCellIndex(QueryPosition - new float3(QueryRadius));
-            int3 maxCell = GetCellIndex(QueryPosition + new float3(QueryRadius));
+            int3 minCell = QueryFunctions.GetCellIndex(QueryPosition - new float3(QueryRadius), WorldMin, CellSize);
+            int3 maxCell = QueryFunctions.GetCellIndex(QueryPosition + new float3(QueryRadius), WorldMin, CellSize);
 
             // Clamp to grid bounds
             minCell = math.max(minCell, 0);
@@ -36,47 +36,30 @@ namespace Insthync.SpatialPartitioningSystems
                 {
                     for (int x = minCell.x; x <= maxCell.x; x++)
                     {
-                        int flatIndex = GetFlatIndex(new int3(x, y, z));
-
-                        if (CellToObjects.TryGetFirstValue(flatIndex, out SpatialObject spatialObject, out var iterator))
+                        int flatIndex = QueryFunctions.GetFlatIndex(new int3(x, y, z), GridSizeX, GridSizeY);
+                        if (!CellToObjects.TryGetFirstValue(flatIndex, out SpatialObject spatialObject, out var iterator))
+                            continue;
+                        do
                         {
-                            do
+                            // Avoid adding the same object multiple times
+                            if (!addedObjects.Contains(spatialObject.objectIndex))
                             {
-                                // Avoid adding the same object multiple times
-                                if (!addedObjects.Contains(spatialObject.objectIndex))
-                                {
-                                    float combinedRadius = QueryRadius + spatialObject.radius;
-                                    float combinedRadiusSq = combinedRadius * combinedRadius;
+                                float combinedRadius = QueryRadius + spatialObject.radius;
+                                float combinedRadiusSq = combinedRadius * combinedRadius;
 
-                                    if (math.distancesq(QueryPosition, spatialObject.position) <= combinedRadiusSq)
-                                    {
-                                        Results.Add(spatialObject);
-                                        addedObjects.Add(spatialObject.objectIndex);
-                                    }
+                                if (math.distancesq(QueryPosition, spatialObject.position) <= combinedRadiusSq)
+                                {
+                                    Results.Add(spatialObject);
+                                    addedObjects.Add(spatialObject.objectIndex);
                                 }
                             }
-                            while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));
                         }
+                        while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));
                     }
                 }
             }
 
             addedObjects.Dispose();
-        }
-
-        private int3 GetCellIndex(float3 position)
-        {
-            float3 relative = position - WorldMin;
-            return new int3(
-                (int)(relative.x / CellSize),
-                (int)(relative.y / CellSize),
-                (int)(relative.z / CellSize)
-            );
-        }
-
-        private int GetFlatIndex(int3 index)
-        {
-            return index.x + GridSizeX * (index.y + GridSizeY * index.z);
         }
     }
 }
