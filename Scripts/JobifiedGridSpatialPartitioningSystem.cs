@@ -97,5 +97,26 @@ namespace Insthync.SpatialPartitioningSystems
             queryJob.Run();
             return results;
         }
+
+        public NativeList<SpatialObject> QuerySquare(Vector3 center, Vector3 extents)
+        {
+            var results = new NativeList<SpatialObject>(Allocator.TempJob);
+
+            var queryJob = new QuerySquareJob
+            {
+                CellToObjects = _cellToObjects,
+                QueryCenter = center,
+                QueryExtents = extents,
+                CellSize = _cellSize,
+                WorldMin = _worldMin,
+                GridSizeX = _gridSizeX,
+                GridSizeY = _gridSizeY,
+                GridSizeZ = _gridSizeZ,
+                Results = results
+            };
+
+            queryJob.Run();
+            return results;
+        }
     }
 }
