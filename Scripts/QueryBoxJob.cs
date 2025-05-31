@@ -6,7 +6,7 @@ using Unity.Mathematics;
 namespace Insthync.SpatialPartitioningSystems
 {
     [BurstCompile]
-    public struct QuerySquareJob : IJob
+    public struct QueryBoxJob : IJob
     {
         [ReadOnly] public NativeParallelMultiHashMap<int, SpatialObject> CellToObjects;
         public float3 QueryCenter;

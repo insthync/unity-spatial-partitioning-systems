@@ -77,11 +77,11 @@ namespace Insthync.SpatialPartitioningSystems
             handle.Complete();
         }
 
-        public NativeList<SpatialObject> QueryRadius(Vector3 position, float radius)
+        public NativeList<SpatialObject> QuerySphere(Vector3 position, float radius)
         {
             var results = new NativeList<SpatialObject>(Allocator.TempJob);
 
-            var queryJob = new QueryRadiusJob
+            var queryJob = new QuerySphereJob
             {
                 CellToObjects = _cellToObjects,
                 QueryPosition = position,
@@ -98,11 +98,11 @@ namespace Insthync.SpatialPartitioningSystems
             return results;
         }
 
-        public NativeList<SpatialObject> QuerySquare(Vector3 center, Vector3 extents)
+        public NativeList<SpatialObject> QueryBox(Vector3 center, Vector3 extents)
         {
             var results = new NativeList<SpatialObject>(Allocator.TempJob);
 
-            var queryJob = new QuerySquareJob
+            var queryJob = new QueryBoxJob
             {
                 CellToObjects = _cellToObjects,
                 QueryCenter = center,
