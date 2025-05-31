@@ -39,7 +39,7 @@ namespace Insthync.SpatialPartitioningSystems
                     for (int x = minCell.x; x <= maxCell.x; x++)
                     {
                         int flatIndex = QueryFunctions.GetFlatIndex(new int3(x, y, z), GridSizeX, GridSizeY);
-                        if (!CellToObjects.TryGetFirstValue(flatIndex, out SpatialObject spatialObject, out var it))
+                        if (!CellToObjects.TryGetFirstValue(flatIndex, out SpatialObject spatialObject, out var iterator))
                             continue;
                         do
                         {
@@ -73,7 +73,7 @@ namespace Insthync.SpatialPartitioningSystems
                                     }
                                     break;
                             }
-                        } while (CellToObjects.TryGetNextValue(out spatialObject, ref it));
+                        } while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));
                     }
                 }
             }
