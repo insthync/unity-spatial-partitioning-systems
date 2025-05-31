@@ -44,7 +44,7 @@ namespace Insthync.SpatialPartitioningSystems
                         do
                         {
                             // Avoid adding the same object multiple times
-                            if (addedObjects.Add(spatialObject.objectIndex))
+                            if (!addedObjects.Add(spatialObject.objectIndex))
                                 continue;
 
                             switch (spatialObject.shape)
@@ -52,9 +52,9 @@ namespace Insthync.SpatialPartitioningSystems
                                 case SpatialObjectShape.Sphere:
                                     float3 position = spatialObject.position;
                                     float radius = spatialObject.radius;
-                                    if (math.abs(position.x - QueryCenter.x) <= QueryExtents.x + radius &&
-                                        math.abs(position.y - QueryCenter.y) <= QueryExtents.y + radius &&
-                                        math.abs(position.z - QueryCenter.z) <= QueryExtents.z + radius)
+                                    float3 closestPoint = math.clamp(spatialObject.position, queryMin, queryMax);
+                                    float distSq = math.distancesq(spatialObject.position, closestPoint);
+                                    if (distSq <= radius * radius)
                                     {
                                         Results.Add(spatialObject);
                                     }
