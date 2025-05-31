@@ -7,6 +7,7 @@ using System.Collections.Generic;
 
 namespace Insthync.SpatialPartitioningSystems
 {
+    [BurstCompile]
     public class JobifiedGridSpatialPartitioningSystem : System.IDisposable
     {
         private NativeArray<SpatialObject> _spatialObjects;
