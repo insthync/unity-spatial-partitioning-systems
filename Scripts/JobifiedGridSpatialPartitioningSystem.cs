@@ -16,20 +16,27 @@ namespace Insthync.SpatialPartitioningSystems
         private readonly int _gridSizeX;
         private readonly int _gridSizeY;
         private readonly int _gridSizeZ;
+        private readonly bool _enableXAxis;
+        private readonly bool _enableYAxis;
+        private readonly bool _enableZAxis;
         private readonly float _cellSize;
         private readonly float3 _worldMin;
 
-        public JobifiedGridSpatialPartitioningSystem(Bounds bounds, float cellSize, int maxObjects)
+        public JobifiedGridSpatialPartitioningSystem(Bounds bounds, float cellSize, int maxObjects, bool enableXAxis, bool enableYAxis, bool enableZAxis)
         {
             _cellSize = cellSize;
             _worldMin = bounds.min;
 
-            _gridSizeX = Mathf.CeilToInt(bounds.size.x / cellSize);
-            _gridSizeY = Mathf.CeilToInt(bounds.size.y / cellSize);
-            _gridSizeZ = Mathf.CeilToInt(bounds.size.z / cellSize);
+            _enableXAxis = enableXAxis;
+            _enableYAxis = enableYAxis;
+            _enableZAxis = enableZAxis;
+
+            _gridSizeX = enableXAxis ? Mathf.CeilToInt(bounds.size.x / cellSize) : 1;
+            _gridSizeY = enableYAxis ? Mathf.CeilToInt(bounds.size.y / cellSize) : 1;
+            _gridSizeZ = enableZAxis ? Mathf.CeilToInt(bounds.size.z / cellSize) : 1;
 
             int totalCells = _gridSizeX * _gridSizeY * _gridSizeZ;
-            _cellToObjects = new NativeParallelMultiHashMap<int, SpatialObject>(maxObjects * 8, Allocator.Persistent); // Multiplied by 8 because objects can span multiple cells
+            _cellToObjects = new NativeParallelMultiHashMap<int, SpatialObject>(totalCells * 8, Allocator.Persistent); // Multiplied by 8 because objects can span multiple cells
         }
 
         public void Dispose()
@@ -85,7 +92,7 @@ namespace Insthync.SpatialPartitioningSystems
             var queryJob = new QuerySphereJob
             {
                 CellToObjects = _cellToObjects,
-                QueryPosition = position,
+                QueryPosition = new float3(_enableXAxis ? position.x : 0f, _enableYAxis ? position.y : 0f, _enableZAxis ? position.z : 0f),
                 QueryRadius = radius,
                 CellSize = _cellSize,
                 WorldMin = _worldMin,
@@ -106,7 +113,7 @@ namespace Insthync.SpatialPartitioningSystems
             var queryJob = new QueryBoxJob
             {
                 CellToObjects = _cellToObjects,
-                QueryCenter = center,
+                QueryCenter = new float3(_enableXAxis ? center.x : 0f, _enableYAxis ? center.y : 0f, _enableZAxis ? center.z : 0f),
                 QueryExtents = extents,
                 CellSize = _cellSize,
                 WorldMin = _worldMin,
