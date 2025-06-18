@@ -59,7 +59,6 @@ namespace Insthync.SpatialPartitioningSystems
         public void UpdateGrid(List<SpatialObject> spatialObjects)
         {
             // Convert to SpatialObjects
-            if (_spatialObjects.IsCreated) _spatialObjects.Dispose();
             _spatialObjects = new NativeArray<SpatialObject>(spatialObjects.Count, Allocator.TempJob);
 
             for (int i = 0; i < spatialObjects.Count; i++)
@@ -89,6 +88,7 @@ namespace Insthync.SpatialPartitioningSystems
 
             var handle = updateJob.Schedule(_spatialObjects.Length, 64);
             handle.Complete();
+            _spatialObjects.Dispose();
         }
 
         public NativeList<SpatialObject> QuerySphere(Vector3 position, float radius)
