@@ -16,27 +16,30 @@ namespace Insthync.SpatialPartitioningSystems
         private readonly int _gridSizeX;
         private readonly int _gridSizeY;
         private readonly int _gridSizeZ;
-        private readonly bool _enableXAxis;
-        private readonly bool _enableYAxis;
-        private readonly bool _enableZAxis;
+        private readonly bool _disableXAxis;
+        private readonly bool _disableYAxis;
+        private readonly bool _disableZAxis;
         private readonly float _cellSize;
         private readonly float3 _worldMin;
 
-        public JobifiedGridSpatialPartitioningSystem(Bounds bounds, float cellSize, int maxObjects, bool enableXAxis, bool enableYAxis, bool enableZAxis)
+        public JobifiedGridSpatialPartitioningSystem(Bounds bounds, float cellSize, int maxObjects, bool disableXAxis, bool disableYAxis, bool disableZAxis)
         {
             _cellSize = cellSize;
-            _worldMin = bounds.min;
 
-            _enableXAxis = enableXAxis;
-            _enableYAxis = enableYAxis;
-            _enableZAxis = enableZAxis;
+            _disableXAxis = disableXAxis;
+            _disableYAxis = disableYAxis;
+            _disableZAxis = disableZAxis;
 
-            _gridSizeX = enableXAxis ? Mathf.CeilToInt(bounds.size.x / cellSize) : 1;
-            _gridSizeY = enableYAxis ? Mathf.CeilToInt(bounds.size.y / cellSize) : 1;
-            _gridSizeZ = enableZAxis ? Mathf.CeilToInt(bounds.size.z / cellSize) : 1;
+            _gridSizeX = disableXAxis ? 1 : Mathf.CeilToInt(bounds.size.x / cellSize);
+            _gridSizeY = disableYAxis ? 1 : Mathf.CeilToInt(bounds.size.y / cellSize);
+            _gridSizeZ = disableZAxis ? 1 : Mathf.CeilToInt(bounds.size.z / cellSize);
 
-            int totalCells = _gridSizeX * _gridSizeY * _gridSizeZ;
-            _cellToObjects = new NativeParallelMultiHashMap<int, SpatialObject>(totalCells * 8, Allocator.Persistent); // Multiplied by 8 because objects can span multiple cells
+            _worldMin = new float3(
+                disableXAxis ? 0 : bounds.min.x,
+                disableYAxis ? 0 : bounds.min.y,
+                disableZAxis ? 0 : bounds.min.z);
+
+            _cellToObjects = new NativeParallelMultiHashMap<int, SpatialObject>(maxObjects, Allocator.Persistent); // Multiplied by 8 because objects can span multiple cells
         }
 
         public void Dispose()
@@ -78,7 +81,10 @@ namespace Insthync.SpatialPartitioningSystems
                 WorldMin = _worldMin,
                 GridSizeX = _gridSizeX,
                 GridSizeY = _gridSizeY,
-                GridSizeZ = _gridSizeZ
+                GridSizeZ = _gridSizeZ,
+                DisableXAxis = _disableXAxis,
+                DisableYAxis = _disableYAxis,
+                DisableZAxis = _disableZAxis
             };
 
             var handle = updateJob.Schedule(_spatialObjects.Length, 64);
@@ -92,14 +98,17 @@ namespace Insthync.SpatialPartitioningSystems
             var queryJob = new QuerySphereJob
             {
                 CellToObjects = _cellToObjects,
-                QueryPosition = new float3(_enableXAxis ? position.x : 0f, _enableYAxis ? position.y : 0f, _enableZAxis ? position.z : 0f),
+                QueryPosition = position,
                 QueryRadius = radius,
                 CellSize = _cellSize,
                 WorldMin = _worldMin,
                 GridSizeX = _gridSizeX,
                 GridSizeY = _gridSizeY,
                 GridSizeZ = _gridSizeZ,
-                Results = results
+                DisableXAxis = _disableXAxis,
+                DisableYAxis = _disableYAxis,
+                DisableZAxis = _disableZAxis,
+                Results = results,
             };
 
             queryJob.Run();
@@ -113,13 +122,16 @@ namespace Insthync.SpatialPartitioningSystems
             var queryJob = new QueryBoxJob
             {
                 CellToObjects = _cellToObjects,
-                QueryCenter = new float3(_enableXAxis ? center.x : 0f, _enableYAxis ? center.y : 0f, _enableZAxis ? center.z : 0f),
+                QueryCenter = center,
                 QueryExtents = extents,
                 CellSize = _cellSize,
                 WorldMin = _worldMin,
                 GridSizeX = _gridSizeX,
                 GridSizeY = _gridSizeY,
                 GridSizeZ = _gridSizeZ,
+                DisableXAxis = _disableXAxis,
+                DisableYAxis = _disableYAxis,
+                DisableZAxis = _disableZAxis,
                 Results = results
             };
 

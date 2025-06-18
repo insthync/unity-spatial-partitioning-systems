@@ -16,15 +16,26 @@ namespace Insthync.SpatialPartitioningSystems
         public int GridSizeX;
         public int GridSizeY;
         public int GridSizeZ;
+        public bool DisableXAxis;
+        public bool DisableYAxis;
+        public bool DisableZAxis;
         public NativeList<SpatialObject> Results;
 
         public void Execute()
         {
+            QueryCenter = new float3(
+                DisableXAxis ? 0 : QueryCenter.x,
+                DisableYAxis ? 0 : QueryCenter.y,
+                DisableZAxis ? 0 : QueryCenter.z);
+            QueryExtents = new float3(
+                DisableXAxis ? 0 : QueryExtents.x,
+                DisableYAxis ? 0 : QueryExtents.y,
+                DisableZAxis ? 0 : QueryExtents.z);
             float3 queryMin = QueryCenter - QueryExtents;
             float3 queryMax = QueryCenter + QueryExtents;
 
-            int3 minCell = QueryFunctions.GetCellIndex(queryMin, WorldMin, CellSize);
-            int3 maxCell = QueryFunctions.GetCellIndex(queryMax, WorldMin, CellSize);
+            int3 minCell = QueryFunctions.GetCellIndex(queryMin, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
+            int3 maxCell = QueryFunctions.GetCellIndex(queryMax, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
 
             // Clamp to grid bounds
             minCell = math.max(minCell, 0);
@@ -47,33 +58,15 @@ namespace Insthync.SpatialPartitioningSystems
                             if (!addedObjects.Add(spatialObject.objectIndex))
                                 continue;
 
-                            switch (spatialObject.shape)
+                            // Point-in-box test
+                            if (spatialObject.position.x >= queryMin.x && spatialObject.position.x <= queryMax.x &&
+                                spatialObject.position.y >= queryMin.y && spatialObject.position.y <= queryMax.y &&
+                                spatialObject.position.z >= queryMin.z && spatialObject.position.z <= queryMax.z)
                             {
-                                case SpatialObjectShape.Sphere:
-                                    float3 position = spatialObject.position;
-                                    float radius = spatialObject.radius;
-                                    float3 closestPoint = math.clamp(spatialObject.position, queryMin, queryMax);
-                                    float distSq = math.distancesq(spatialObject.position, closestPoint);
-                                    if (distSq <= radius * radius)
-                                    {
-                                        Results.Add(spatialObject);
-                                    }
-                                    break;
-                                case SpatialObjectShape.Box:
-                                    // Calculate box min and max
-                                    float3 boxMin = spatialObject.position - spatialObject.extents;
-                                    float3 boxMax = spatialObject.position + spatialObject.extents;
-
-                                    // AABB-AABB intersection check
-                                    if (!(boxMax.x < queryMin.x || boxMin.x > queryMax.x ||
-                                          boxMax.y < queryMin.y || boxMin.y > queryMax.y ||
-                                          boxMax.z < queryMin.z || boxMin.z > queryMax.z))
-                                    {
-                                        Results.Add(spatialObject);
-                                    }
-                                    break;
+                                Results.Add(spatialObject);
                             }
-                        } while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));
+                        }
+                        while (CellToObjects.TryGetNextValue(out spatialObject, ref iterator));
                     }
                 }
             }

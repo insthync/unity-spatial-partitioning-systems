@@ -6,13 +6,14 @@ namespace Insthync.SpatialPartitioningSystems
     public static class QueryFunctions
     {
         [BurstCompile]
-        public static int3 GetCellIndex(float3 position, float3 worldMin, float cellSize)
+        public static int3 GetCellIndex(float3 position, float3 worldMin, float cellSize,
+            bool disableXAxis, bool disableYAxis, bool disableZAxis)
         {
             float3 relative = position - worldMin;
             return new int3(
-                (int)(relative.x / cellSize),
-                (int)(relative.y / cellSize),
-                (int)(relative.z / cellSize)
+                disableXAxis ? 0 : (int)(relative.x / cellSize),
+                disableYAxis ? 0 : (int)(relative.y / cellSize),
+                disableZAxis ? 0 : (int)(relative.z / cellSize)
             );
         }
 

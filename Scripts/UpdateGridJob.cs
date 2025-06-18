@@ -15,13 +15,16 @@ namespace Insthync.SpatialPartitioningSystems
         public int GridSizeX;
         public int GridSizeY;
         public int GridSizeZ;
+        public bool DisableXAxis;
+        public bool DisableYAxis;
+        public bool DisableZAxis;
 
         public void Execute(int index)
         {
             SpatialObject obj = Objects[index];
 
             // Only use center position to determine which cell to store into
-            int3 cellIndex = QueryFunctions.GetCellIndex(obj.position, WorldMin, CellSize);
+            int3 cellIndex = QueryFunctions.GetCellIndex(obj.position, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
 
             // Clamp to grid bounds
             cellIndex = math.clamp(cellIndex, int3.zero, new int3(GridSizeX - 1, GridSizeY - 1, GridSizeZ - 1));
