@@ -1,11 +1,9 @@
-using Unity.Burst;
 using Unity.Mathematics;
 
 namespace Insthync.SpatialPartitioningSystems
 {
     public static class QueryFunctions
     {
-        [BurstCompile]
         public static int3 GetCellIndex(float3 position, float3 worldMin, float cellSize,
             bool disableXAxis, bool disableYAxis, bool disableZAxis)
         {
@@ -17,7 +15,6 @@ namespace Insthync.SpatialPartitioningSystems
             );
         }
 
-        [BurstCompile]
         public static int GetFlatIndex(int3 index, int gridSizeX, int gridSizeY)
         {
             // Converts a 3D grid index (x, y, z) into a 1D array index.
