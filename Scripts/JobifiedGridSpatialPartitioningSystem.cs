@@ -64,6 +64,14 @@ namespace Insthync.SpatialPartitioningSystems
             for (int i = 0; i < spatialObjects.Count; i++)
             {
                 SpatialObject spatialObject = spatialObjects[i];
+                float3 postition = spatialObject.position;
+                if (_disableXAxis)
+                    postition.x = 0f;
+                if (_disableYAxis)
+                    postition.y = 0f;
+                if (_disableZAxis)
+                    postition.z = 0f;
+                spatialObject.position = postition;
                 spatialObject.objectIndex = i;
                 _spatialObjects[i] = spatialObject;
             }
