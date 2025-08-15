@@ -106,7 +106,7 @@ namespace Insthync.SpatialPartitioningSystems
             var queryJob = new QuerySphereJob
             {
                 CellToObjects = _cellToObjects,
-                QueryPosition = position,
+                QueryCenter = position,
                 QueryRadius = radius,
                 CellSize = _cellSize,
                 WorldMin = _worldMin,
