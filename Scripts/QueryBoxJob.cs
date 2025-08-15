@@ -27,19 +27,29 @@ namespace Insthync.SpatialPartitioningSystems
                 DisableXAxis ? 0 : QueryCenter.x,
                 DisableYAxis ? 0 : QueryCenter.y,
                 DisableZAxis ? 0 : QueryCenter.z);
-            QueryExtents = new float3(
+            float3 queryExtentVec = new float3(
                 DisableXAxis ? 0 : QueryExtents.x,
                 DisableYAxis ? 0 : QueryExtents.y,
                 DisableZAxis ? 0 : QueryExtents.z);
-            float3 queryMin = QueryCenter - QueryExtents;
-            float3 queryMax = QueryCenter + QueryExtents;
-
+            float3 queryMin = QueryCenter - queryExtentVec;
+            float3 queryMax = QueryCenter + queryExtentVec;
             int3 minCell = QueryFunctions.GetCellIndex(queryMin, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
             int3 maxCell = QueryFunctions.GetCellIndex(queryMax, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
 
             // Clamp to grid bounds
-            minCell = math.max(minCell, 0);
-            maxCell = math.min(maxCell, new int3(GridSizeX - 1, GridSizeY - 1, GridSizeZ - 1));
+            if (minCell.x < 0 || minCell.x > GridSizeX - 1)
+                minCell.x = 0;
+            if (minCell.y < 0 || minCell.y > GridSizeY - 1)
+                minCell.y = 0;
+            if (minCell.z < 0 || minCell.z > GridSizeZ - 1)
+                minCell.z = 0;
+
+            if (maxCell.x < 0 || maxCell.x > GridSizeX - 1)
+                maxCell.x = GridSizeX - 1;
+            if (maxCell.y < 0 || maxCell.y > GridSizeY - 1)
+                maxCell.y = GridSizeY - 1;
+            if (maxCell.z < 0 || maxCell.z > GridSizeZ - 1)
+                maxCell.z = GridSizeZ - 1;
 
             var addedObjects = new NativeHashSet<int>(100, Allocator.Temp);
 

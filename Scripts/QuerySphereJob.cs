@@ -9,7 +9,7 @@ namespace Insthync.SpatialPartitioningSystems
     public struct QuerySphereJob : IJob
     {
         [ReadOnly] public NativeParallelMultiHashMap<int, SpatialObject> CellToObjects;
-        public float3 QueryPosition;
+        public float3 QueryCenter;
         public float QueryRadius;
         public float CellSize;
         public float3 WorldMin;
@@ -23,18 +23,33 @@ namespace Insthync.SpatialPartitioningSystems
 
         public void Execute()
         {
-            QueryPosition = new float3(
-                DisableXAxis ? 0 : QueryPosition.x,
-                DisableYAxis ? 0 : QueryPosition.y,
-                DisableZAxis ? 0 : QueryPosition.z);
+            QueryCenter = new float3(
+                DisableXAxis ? 0 : QueryCenter.x,
+                DisableYAxis ? 0 : QueryCenter.y,
+                DisableZAxis ? 0 : QueryCenter.z);
             float radiusSquared = QueryRadius * QueryRadius;
+            if (radiusSquared < 0f)
+                radiusSquared = float.MaxValue;
             float3 queryExtentVec = new float3(QueryRadius);
-            int3 minCell = QueryFunctions.GetCellIndex(QueryPosition - queryExtentVec, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
-            int3 maxCell = QueryFunctions.GetCellIndex(QueryPosition + queryExtentVec, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
+            float3 queryMin = QueryCenter - queryExtentVec;
+            float3 queryMax = QueryCenter + queryExtentVec;
+            int3 minCell = QueryFunctions.GetCellIndex(queryMin, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
+            int3 maxCell = QueryFunctions.GetCellIndex(queryMax, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
 
             // Clamp to grid bounds
-            minCell = math.max(minCell, 0);
-            maxCell = math.min(maxCell, new int3(GridSizeX - 1, GridSizeY - 1, GridSizeZ - 1));
+            if (minCell.x < 0 || minCell.x > GridSizeX - 1)
+                minCell.x = 0;
+            if (minCell.y < 0 || minCell.y > GridSizeY - 1)
+                minCell.y = 0;
+            if (minCell.z < 0 || minCell.z > GridSizeZ - 1)
+                minCell.z = 0;
+
+            if (maxCell.x < 0 || maxCell.x > GridSizeX - 1)
+                maxCell.x = GridSizeX - 1;
+            if (maxCell.y < 0 || maxCell.y > GridSizeY - 1)
+                maxCell.y = GridSizeY - 1;
+            if (maxCell.z < 0 || maxCell.z > GridSizeZ - 1)
+                maxCell.z = GridSizeZ - 1;
 
             var addedObjects = new NativeHashSet<int>(100, Allocator.Temp);
 
@@ -54,7 +69,7 @@ namespace Insthync.SpatialPartitioningSystems
                                 continue;
 
                             // Check if the object is inside the query radius, expanded by its radius
-                            if (math.distancesq(QueryPosition, spatialObject.position) <= radiusSquared)
+                            if (math.distancesq(QueryCenter, spatialObject.position) <= radiusSquared)
                             {
                                 Results.Add(spatialObject);
                             }
