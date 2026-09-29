@@ -36,22 +36,10 @@ namespace Insthync.SpatialPartitioningSystems
             int3 minCell = QueryFunctions.GetCellIndex(queryMin, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
             int3 maxCell = QueryFunctions.GetCellIndex(queryMax, WorldMin, CellSize, DisableXAxis, DisableYAxis, DisableZAxis);
 
-            // Clamp to grid bounds
-            if (minCell.x < 0 || minCell.x > GridSizeX - 1)
-                minCell.x = 0;
-            if (minCell.y < 0 || minCell.y > GridSizeY - 1)
-                minCell.y = 0;
-            if (minCell.z < 0 || minCell.z > GridSizeZ - 1)
-                minCell.z = 0;
-
-            if (maxCell.x < 0 || maxCell.x > GridSizeX - 1)
-                maxCell.x = GridSizeX - 1;
-            if (maxCell.y < 0 || maxCell.y > GridSizeY - 1)
-                maxCell.y = GridSizeY - 1;
-            if (maxCell.z < 0 || maxCell.z > GridSizeZ - 1)
-                maxCell.z = GridSizeZ - 1;
-
-            var addedObjects = new NativeHashSet<int>(100, Allocator.Temp);
+            // Objects outside the configured bounds are stored in the nearest edge cell.
+            int3 lastCell = new int3(GridSizeX - 1, GridSizeY - 1, GridSizeZ - 1);
+            minCell = math.clamp(minCell, int3.zero, lastCell);
+            maxCell = math.clamp(maxCell, int3.zero, lastCell);
 
             for (int z = minCell.z; z <= maxCell.z; z++)
             {
@@ -64,11 +52,7 @@ namespace Insthync.SpatialPartitioningSystems
                             continue;
                         do
                         {
-                            // Avoid adding the same object multiple times
-                            if (!addedObjects.Add(spatialObject.objectIndex))
-                                continue;
-
-                            // Point-in-box test
+                            // Each object is stored in exactly one cell.
                             if (spatialObject.position.x >= queryMin.x && spatialObject.position.x <= queryMax.x &&
                                 spatialObject.position.y >= queryMin.y && spatialObject.position.y <= queryMax.y &&
                                 spatialObject.position.z >= queryMin.z && spatialObject.position.z <= queryMax.z)
@@ -80,8 +64,6 @@ namespace Insthync.SpatialPartitioningSystems
                     }
                 }
             }
-
-            addedObjects.Dispose();
         }
     }
 }
